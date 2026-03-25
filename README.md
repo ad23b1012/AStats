@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![GSoC 2025](https://img.shields.io/badge/GSoC-2025-orange.svg)](https://summerofcode.withgoogle.com/)
 
-*An intelligent, LLM-powered system that helps statistical practitioners explore, analyze, and report on datasets with scientific rigor — using 100% free-tier AI.*
+*An intelligent, LLM-powered system that helps statistical practitioners explore, analyze, and report on datasets with scientific rigor*
 
 [Quick Start](#-quick-start) · [Features](#-features) · [Architecture](#-architecture) · [Usage](#-usage) · [Contributing](#-contributing)
 
