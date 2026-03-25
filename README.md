@@ -278,13 +278,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code style, and PR
 
 MIT License — see [LICENSE](LICENSE) for details.
 
----
-
-## 🙏 Acknowledgments
-
-- **Mentors**: Jonathan Morris, Yohai-Eliel Berreby, Suresh Krishna
-- **Organization**: [INCF / m2b3](https://github.com/m2b3)
-- **Program**: [Google Summer of Code 2025](https://summerofcode.withgoogle.com/)
 
 ---
 
