@@ -6,9 +6,13 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![GSoC 2025](https://img.shields.io/badge/GSoC-2025-orange.svg)](https://summerofcode.withgoogle.com/)
+[![GSoC 2026](https://img.shields.io/badge/GSoC-2026-orange.svg)](https://summerofcode.withgoogle.com/)
 
+<<<<<<< HEAD
 *An intelligent, LLM-powered system that helps statistical practitioners explore, analyze, and report on datasets with scientific rigor*
+=======
+*An intelligent, LLM-powered system that helps statistical practitioners explore, analyze, and report on datasets with scientific rigor — using state-of-the-art open-weight and proprietary AI.*
+>>>>>>> 1123446 (feat: Add mentor requested updates (real datasets, Claude/OpenAI adapters, methodology docs))
 
 [Quick Start](#-quick-start) · [Features](#-features) · [Architecture](#-architecture) · [Usage](#-usage) · [Contributing](#-contributing)
 
@@ -48,11 +52,12 @@ AStats is an **agentic AI system** that augments statistical practitioners by au
 - Correlation analysis with top pairs
 - Outlier detection (IQR method)
 
-### 🤖 Free LLM Integration
-- **Gemini Flash 2.5** (primary) — Google's free-tier model
-- **Groq** (secondary) — Fast inference on Llama/Mixtral
-- **No OpenAI dependency** — 100% free providers
-- Streaming, function calling, retry with exponential backoff
+### 🤖 Multi-Provider LLM Integration
+- **Gemini Flash 2.5** (primary default) — Google's fastest free-tier model
+- **Groq** — Blazing fast inference for open-weight **Llama 3** and **Mixtral**
+- **Anthropic Claude 3.5** — Support for Sonnet, Opus, and Haiku pipelines
+- **OpenAI / Codex** — Support for GPT-4o and legacy Codex models
+- Streaming, function calling, retry with exponential backoff across all providers
 
 ### 📈 Smart Visualizations
 - Auto-selects appropriate plot types based on data
@@ -91,10 +96,11 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 # Install in development mode
 pip install -e ".[dev]"
 
-# Set your API key
+# Set your API keys
 export GEMINI_API_KEY="your-key-here"
-# OR
 export GROQ_API_KEY="your-key-here"
+export ANTHROPIC_API_KEY="your-key-here"
+export OPENAI_API_KEY="your-key-here"
 ```
 
 ### Verify Installation
@@ -147,12 +153,26 @@ Then use natural language:
 ### Using Different Providers
 
 ```bash
-# Use Groq instead of Gemini
+# Use Groq (Llama 3)
 astats analyze data.csv --provider groq --model llama-3.3-70b-versatile
+
+# Use Anthropic Claude
+astats analyze data.csv --provider claude --model claude-3-5-sonnet-20241022
+
+# Use OpenAI / Codex
+astats analyze data.csv --provider openai --model gpt-4o
 
 # Use Gemini Flash (default)
 astats analyze data.csv --provider gemini --model gemini-2.5-flash
 ```
+
+### Real-World Example Pipelines
+
+AStats robustly handles real-world scientific datasets. Check the `examples/` directory for fully documented workflows:
+
+- `examples/eda_iris_example.py` (Fisher's Iris EDA via AStats)
+- `examples/regression_diabetes_example.py` (OLS & Ridge/Lasso comparison)
+- `examples/hypothesis_titanic_example.py` (Non-parametric & parametric testing)
 
 ### Python API
 
@@ -265,6 +285,12 @@ ruff check src/
 # Type check
 mypy src/
 ```
+
+---
+
+## 📈 Methodology
+
+Read [METHODOLOGY.md](METHODOLOGY.md) for a comprehensive deep-dive into the statistical tests and pipelines implemented in the AStats agents.
 
 ---
 

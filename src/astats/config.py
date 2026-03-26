@@ -18,10 +18,12 @@ from pydantic import BaseModel, Field
 
 
 class LLMProviderType(str, Enum):
-    """Supported LLM providers (free-tier only)."""
+    """Supported LLM providers."""
 
     GEMINI = "gemini"
     GROQ = "groq"
+    CLAUDE = "claude"
+    OPENAI = "openai"
 
 
 class LLMConfig(BaseModel):
@@ -51,6 +53,8 @@ class LLMConfig(BaseModel):
         env_map = {
             LLMProviderType.GEMINI: "GEMINI_API_KEY",
             LLMProviderType.GROQ: "GROQ_API_KEY",
+            LLMProviderType.CLAUDE: "ANTHROPIC_API_KEY",
+            LLMProviderType.OPENAI: "OPENAI_API_KEY",
         }
         env_var = env_map.get(self.provider, "")
         key = os.environ.get(env_var, "")

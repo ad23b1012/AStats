@@ -391,6 +391,227 @@ class GroqProvider(BaseLLMProvider):
                 yield chunk.choices[0].delta.content
 
 
+class ClaudeProvider(BaseLLMProvider):
+    """Anthropic Claude provider.
+    
+    Supports Claude 3.5 Sonnet, Opus, and Haiku.
+    """
+
+    def __init__(self, config: AStatsConfig) -> None:
+        super().__init__(config)
+        self._client = None
+
+    def _get_client(self) -> Any:
+        if self._client is None:
+            from anthropic import Anthropic
+            api_key = self.config.llm.get_api_key()
+            self._client = Anthropic(api_key=api_key)
+            logger.info(f"[agent]Claude[/agent] client initialized (model: {self.config.llm.model})")
+        return self._client
+
+    def _convert_messages(self, messages: list[LLMMessage]) -> tuple[str, list[dict[str, str]]]:
+        system = ""
+        msgs = []
+        for m in messages:
+            if m.role == "system":
+                system = m.content
+            else:
+                msgs.append({"role": m.role, "content": m.content})
+        return system, msgs
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=30), reraise=True)
+    def chat(
+        self,
+        messages: list[LLMMessage],
+        *,
+        tools: list[dict[str, Any]] | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> LLMResponse:
+        client = self._get_client()
+        temp = temperature if temperature is not None else self.config.llm.temperature
+        max_tok = max_tokens if max_tokens is not None else self.config.llm.max_tokens
+
+        system, anthropic_messages = self._convert_messages(messages)
+        
+        kwargs: dict[str, Any] = {
+            "model": self.config.llm.model,
+            "system": system,
+            "messages": anthropic_messages,
+            "temperature": temp,
+            "max_tokens": max_tok,
+        }
+
+        if tools:
+            # Basic conversion for Anthropic format
+            anthropic_tools = []
+            for t in tools:
+                if t.get("type") == "function":
+                    f = t["function"]
+                    anthropic_tools.append({
+                        "name": f["name"],
+                        "description": f.get("description", ""),
+                        "input_schema": f.get("parameters", {"type": "object", "properties": {}}),
+                    })
+            if anthropic_tools:
+                kwargs["tools"] = anthropic_tools
+
+        response = client.messages.create(**kwargs)
+
+        content = ""
+        tool_calls = []
+        
+        for block in response.content:
+            if block.type == "text":
+                content += block.text
+            elif block.type == "tool_use":
+                tool_calls.append({
+                    "name": block.name,
+                    "arguments": block.input,
+                })
+
+        usage = {}
+        if hasattr(response, "usage"):
+            usage = {
+                "prompt_tokens": response.usage.input_tokens,
+                "completion_tokens": response.usage.output_tokens,
+                "total_tokens": response.usage.input_tokens + response.usage.output_tokens,
+            }
+
+        return LLMResponse(
+            content=content,
+            model=self.config.llm.model,
+            provider="claude",
+            usage=usage,
+            tool_calls=tool_calls if tool_calls else None,
+            raw=response,
+        )
+
+    async def stream(
+        self,
+        messages: list[LLMMessage],
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> AsyncIterator[str]:
+        client = self._get_client()
+        temp = temperature if temperature is not None else self.config.llm.temperature
+        max_tok = max_tokens if max_tokens is not None else self.config.llm.max_tokens
+
+        system, anthropic_messages = self._convert_messages(messages)
+        
+        with client.messages.stream(
+            model=self.config.llm.model,
+            system=system,
+            messages=anthropic_messages,
+            temperature=temp,
+            max_tokens=max_tok,
+        ) as stream:
+            for text in stream.text_stream:
+                yield text
+
+
+class OpenAIProvider(BaseLLMProvider):
+    """OpenAI/Codex provider.
+    
+    Supports GPT-4o, GPT-3.5, and Codex models.
+    """
+
+    def __init__(self, config: AStatsConfig) -> None:
+        super().__init__(config)
+        self._client = None
+
+    def _get_client(self) -> Any:
+        if self._client is None:
+            from openai import OpenAI
+            api_key = self.config.llm.get_api_key()
+            self._client = OpenAI(api_key=api_key)
+            logger.info(f"[agent]OpenAI[/agent] client initialized (model: {self.config.llm.model})")
+        return self._client
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=30), reraise=True)
+    def chat(
+        self,
+        messages: list[LLMMessage],
+        *,
+        tools: list[dict[str, Any]] | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> LLMResponse:
+        client = self._get_client()
+        temp = temperature if temperature is not None else self.config.llm.temperature
+        max_tok = max_tokens if max_tokens is not None else self.config.llm.max_tokens
+
+        msg_dicts = [m.to_dict() for m in messages]
+
+        kwargs: dict[str, Any] = {
+            "model": self.config.llm.model,
+            "messages": msg_dicts,
+            "temperature": temp,
+            "max_tokens": max_tok,
+        }
+
+        if tools:
+            kwargs["tools"] = tools
+
+        response = client.chat.completions.create(**kwargs)
+
+        choice = response.choices[0]
+        content = choice.message.content or ""
+
+        tool_calls = None
+        if choice.message.tool_calls:
+            tool_calls = [
+                {
+                    "name": tc.function.name,
+                    "arguments": json.loads(tc.function.arguments) if tc.function.arguments else {},
+                }
+                for tc in choice.message.tool_calls
+            ]
+
+        usage = {}
+        if response.usage:
+            usage = {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens,
+            }
+
+        return LLMResponse(
+            content=content,
+            model=self.config.llm.model,
+            provider="openai",
+            usage=usage,
+            tool_calls=tool_calls,
+            raw=response,
+        )
+
+    async def stream(
+        self,
+        messages: list[LLMMessage],
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> AsyncIterator[str]:
+        client = self._get_client()
+        temp = temperature if temperature is not None else self.config.llm.temperature
+        max_tok = max_tokens if max_tokens is not None else self.config.llm.max_tokens
+
+        msg_dicts = [m.to_dict() for m in messages]
+
+        response_stream = client.chat.completions.create(
+            model=self.config.llm.model,
+            messages=msg_dicts,
+            temperature=temp,
+            max_tokens=max_tok,
+            stream=True,
+        )
+
+        for chunk in response_stream:
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
+
+
 def create_provider(config: AStatsConfig) -> BaseLLMProvider:
     """Factory function to create the appropriate LLM provider.
 
@@ -403,6 +624,8 @@ def create_provider(config: AStatsConfig) -> BaseLLMProvider:
     providers = {
         LLMProviderType.GEMINI: GeminiProvider,
         LLMProviderType.GROQ: GroqProvider,
+        LLMProviderType.CLAUDE: ClaudeProvider,
+        LLMProviderType.OPENAI: OpenAIProvider,
     }
 
     provider_cls = providers.get(config.llm.provider)
